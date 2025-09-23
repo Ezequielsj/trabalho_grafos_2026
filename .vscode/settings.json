@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "biblioteca_grafos.h": "c",
+        "stdio.h": "c",
+        "stdbool.h": "c"
+    }
+}
