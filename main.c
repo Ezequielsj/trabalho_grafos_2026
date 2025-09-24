@@ -9,6 +9,7 @@
 void criar_pasta_resultados() {
     struct stat st = {0};
     if (stat("resultados", &st) == -1) {
+        // A função mkdir em sistemas Linux (como o WSL) espera 2 argumentos
         mkdir("resultados", 0700);
     }
 }
@@ -17,16 +18,20 @@ void criar_pasta_resultados() {
 void salvar_info_busca(Grafo *grafo, int *pais, int *niveis, int vertice_inicial, const char *nome_busca) {
     char nome_arquivo[256];
     snprintf(nome_arquivo, sizeof(nome_arquivo), "resultados/%s_%d.txt", nome_busca, vertice_inicial);
+
     FILE *arquivo = fopen(nome_arquivo, "w");
     if (!arquivo) {
         printf("Erro ao abrir o arquivo de saida para a busca.\n");
         return;
     }
+
     fprintf(arquivo, "Arvore de Busca em %s (iniciando do vertice %d)\n", nome_busca, vertice_inicial);
     fprintf(arquivo, "Vertice\tPai\tNivel\n");
+
     for (int i = 0; i < grafo->num_vertices; i++) {
         fprintf(arquivo, "%d\t%d\t%d\n", i + 1, pais[i] + 1, niveis[i]);
     }
+
     fclose(arquivo);
 }
 
@@ -34,15 +39,19 @@ void salvar_info_busca(Grafo *grafo, int *pais, int *niveis, int vertice_inicial
 void salvar_memoria_grafo(Grafo *grafo, const char *nome_arquivo) {
     char caminho_arquivo[256];
     snprintf(caminho_arquivo, sizeof(caminho_arquivo), "resultados/%s", nome_arquivo);
+
     FILE *arquivo_saida = fopen(caminho_arquivo, "w");
     if (!arquivo_saida) {
         printf("Erro ao abrir o arquivo de saida: %s\n", caminho_arquivo);
         return;
     }
-    long long memoria_lista_adj = (long long)sizeof(NoListaAdj *) * grafo->num_vertices;
+
+    long long memoria_lista_adj = (long long)sizeof(NoListaAdj *) * grafo->num_vertices + (long long)sizeof(NoListaAdj) * (long long)grafo->num_arestas * 2;
     long long memoria_matriz_adj = (long long)sizeof(int *) * grafo->num_vertices + (long long)sizeof(int) * (long long)grafo->num_vertices * grafo->num_vertices;
+
     fprintf(arquivo_saida, "Memoria utilizada (Lista de Adjacencia): %lld bytes\n", memoria_lista_adj);
     fprintf(arquivo_saida, "Memoria utilizada (Matriz de Adjacencia): %lld bytes\n", memoria_matriz_adj);
+
     fclose(arquivo_saida);
 }
 
@@ -50,34 +59,42 @@ void salvar_memoria_grafo(Grafo *grafo, const char *nome_arquivo) {
 void salvar_distancias(Grafo *grafo, const char *nome_arquivo) {
     char caminho_arquivo[256];
     snprintf(caminho_arquivo, sizeof(caminho_arquivo), "resultados/%s", nome_arquivo);
+
     FILE *arquivo_saida = fopen(caminho_arquivo, "w");
     if (!arquivo_saida) {
         printf("Erro ao abrir o arquivo de saida: %s\n", caminho_arquivo);
         return;
     }
+
     fprintf(arquivo_saida, "Distancias entre Pares de Vertices\n");
     int pares[3][2] = {{10, 20}, {10, 30}, {20, 30}};
+
     for (int i = 0; i < 3; i++) {
         int origem = pares[i][0];
         int destino = pares[i][1];
         int distancia = calcular_distancia(grafo, origem, destino);
+        
         if (distancia != -1) {
             fprintf(arquivo_saida, "Distancia entre %d e %d: %d\n", origem, destino, distancia);
         } else {
             fprintf(arquivo_saida, "Nao ha caminho entre %d e %d.\n", origem, destino);
         }
     }
+
     fclose(arquivo_saida);
 }
 
+
 int main() {
     criar_pasta_resultados();
+
     int escolha_rep;
     printf("Escolha a representacao do grafo:\n");
     printf("1. Lista de Adjacencia\n");
     printf("2. Matriz de Adjacencia\n");
     printf("Escolha: ");
     scanf("%d", &escolha_rep);
+
     RepresentacaoGrafo tipo_representacao;
     if (escolha_rep == 1) {
         tipo_representacao = LISTA_ADJACENCIA;
@@ -87,11 +104,14 @@ int main() {
         printf("Opcao invalida. Usando lista de adjacencia como padrao.\n");
         tipo_representacao = LISTA_ADJACENCIA;
     }
+
     Grafo *grafo = ler_grafo_do_arquivo("grafo_3.txt", tipo_representacao);
     if (!grafo) {
         return 1;
     }
+
     printf("Numero de vertices: %d\n", grafo->num_vertices);
+
     int escolha;
     printf("\nSelecione o teste a ser executado:\n");
     printf("1. Teste de Memoria\n");
@@ -105,6 +125,7 @@ int main() {
     printf("9. Sair\n");
     printf("Escolha: ");
     scanf("%d", &escolha);
+
     switch (escolha) {
         case 1:
             salvar_memoria_grafo(grafo, "1.memoria.txt");
@@ -166,6 +187,7 @@ int main() {
                     printf("Vertice inicial %d nao existe no grafo. Pulando...\n", vertice_inicial);
                     continue;
                 }
+                
                 int *pais_bfs = (int *)malloc(grafo->num_vertices * sizeof(int));
                 int *niveis_bfs = (int *)malloc(grafo->num_vertices * sizeof(int));
                 busca_em_largura(grafo, vertice_inicial, pais_bfs, niveis_bfs);
@@ -209,6 +231,7 @@ int main() {
             printf("Opcao invalida! Tente novamente.\n");
             break;
     }
+
     liberar_grafo(grafo);
     return 0;
 }
