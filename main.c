@@ -9,7 +9,6 @@
 void criar_pasta_resultados() {
     struct stat st = {0};
     if (stat("resultados", &st) == -1) {
-        // A função mkdir em sistemas Linux (como o WSL) espera 2 argumentos
         mkdir("resultados", 0700);
     }
 }
@@ -105,8 +104,17 @@ int main() {
         tipo_representacao = LISTA_ADJACENCIA;
     }
 
-    Grafo *grafo = ler_grafo_do_arquivo("grafo_3.txt", tipo_representacao);
+    // Seleção dinâmica do número do grafo
+    int num_grafo;
+    printf("Digite o numero do grafo a carregar (ex: 1, 2, 3): ");
+    scanf("%d", &num_grafo);
+
+    char caminho_grafo[256];
+    snprintf(caminho_grafo, sizeof(caminho_grafo), "grafos/grafo_%d.txt", num_grafo);
+
+    Grafo *grafo = ler_grafo_do_arquivo(caminho_grafo, tipo_representacao);
     if (!grafo) {
+        printf("Erro ao carregar o grafo %s\n", caminho_grafo);
         return 1;
     }
 
