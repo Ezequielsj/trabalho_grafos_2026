@@ -1,0 +1,2 @@
+Memoria utilizada (Lista de Adjacencia): 1525779440 bytes
+Memoria utilizada (Matriz de Adjacencia): 93847695000000 bytes

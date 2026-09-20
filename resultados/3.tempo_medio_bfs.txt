@@ -1,0 +1,1 @@
+Tempo medio de execucao da BFS: 0.193109 segundos
