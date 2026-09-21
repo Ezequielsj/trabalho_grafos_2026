@@ -172,27 +172,27 @@ void salvar_informacoes_grafo(Grafo *grafo, const char *nome_arquivo_saida) {
 
 void busca_em_largura(Grafo *grafo, int vertice_inicial, int *pais, int *niveis) {
     vertice_inicial--;
-    bool *visitados = (bool *)calloc(grafo->num_vertices, sizeof(bool));
+    
+    // OTIMIZAÇÃO 2: Vetor 'visitados' completamente removido (poupando O(V) de memória e O(V) de iterações)
     int *fila = (int *)malloc(grafo->num_vertices * sizeof(int));
     int inicio = 0, fim = 0;
     
     for (int i = 0; i < grafo->num_vertices; i++) {
-        niveis[i] = -1;
+        niveis[i] = -1; // Nível -1 agora atua nativamente como flag de "não visitado"
         pais[i] = -1;
     }
     
-    visitados[vertice_inicial] = true;
     niveis[vertice_inicial] = 0;
     fila[fim++] = vertice_inicial;
     
-    // OTIMIZAÇÃO: If removido de dentro do ciclo principal
+    // Loop Unswitching aplicado
     if (grafo->tipo_representacao == LISTA_ADJACENCIA) {
         while (inicio < fim) {
             int v = fila[inicio++];
             NoListaAdj *adj = grafo->lista_adj[v];
             while (adj != NULL) {
-                if (!visitados[adj->vertice]) {
-                    visitados[adj->vertice] = true;
+                // OTIMIZAÇÃO 2: Checamos diretamente se o nível é -1
+                if (niveis[adj->vertice] == -1) { 
                     pais[adj->vertice] = v;
                     niveis[adj->vertice] = niveis[v] + 1;
                     fila[fim++] = adj->vertice;
@@ -204,8 +204,7 @@ void busca_em_largura(Grafo *grafo, int vertice_inicial, int *pais, int *niveis)
         while (inicio < fim) {
             int v = fila[inicio++];
             for (int i = 0; i < grafo->num_vertices; i++) {
-                if (grafo->matriz_adj[v][i] == 1 && !visitados[i]) {
-                    visitados[i] = true;
+                if (grafo->matriz_adj[v][i] == 1 && niveis[i] == -1) {
                     pais[i] = v;
                     niveis[i] = niveis[v] + 1;
                     fila[fim++] = i;
@@ -214,14 +213,13 @@ void busca_em_largura(Grafo *grafo, int vertice_inicial, int *pais, int *niveis)
         }
     }
     
-    free(visitados);
     free(fila);
 }
 
 void busca_em_profundidade(Grafo *grafo, int vertice_inicial, int *pais, int *niveis) {
     vertice_inicial--;
-    bool *visitados = (bool *)calloc(grafo->num_vertices, sizeof(bool));
     
+    // OTIMIZAÇÃO 2: Vetor 'visitados' também removido da DFS. 
     int capacidade_pilha = grafo->num_vertices;
     int *pilha = (int *)malloc(capacidade_pilha * sizeof(int));
     int topo = -1;
@@ -234,49 +232,45 @@ void busca_em_profundidade(Grafo *grafo, int vertice_inicial, int *pais, int *ni
     pilha[++topo] = vertice_inicial;
     niveis[vertice_inicial] = 0;
     
-    // OTIMIZAÇÃO: If removido de dentro do ciclo
     if (grafo->tipo_representacao == LISTA_ADJACENCIA) {
         while (topo >= 0) {
             int u = pilha[topo--];
-            if (!visitados[u]) {
-                visitados[u] = true;
-                NoListaAdj *adj = grafo->lista_adj[u];
-                while (adj != NULL) {
-                    int v = adj->vertice;
-                    if (!visitados[v]) {
-                        if (topo + 1 >= capacidade_pilha) {
-                            capacidade_pilha *= 2;
-                            pilha = (int *)realloc(pilha, capacidade_pilha * sizeof(int));
-                        }
-                        pilha[++topo] = v;
-                        pais[v] = u;
-                        niveis[v] = niveis[u] + 1;
+            // Não precisamos mais checar se 'u' foi visitado ao desempilhar, 
+            // pois a otimização abaixo garante que duplicatas nunca são empilhadas.
+            
+            NoListaAdj *adj = grafo->lista_adj[u];
+            while (adj != NULL) {
+                int v = adj->vertice;
+                if (niveis[v] == -1) { 
+                    if (topo + 1 >= capacidade_pilha) {
+                        capacidade_pilha *= 2;
+                        pilha = (int *)realloc(pilha, capacidade_pilha * sizeof(int));
                     }
-                    adj = adj->proximo;
+                    pilha[++topo] = v;
+                    pais[v] = u;
+                    niveis[v] = niveis[u] + 1; // Ao marcar aqui, evitamos que o mesmo vértice seja empilhado duas vezes
                 }
+                adj = adj->proximo;
             }
         }
     } else {
         while (topo >= 0) {
             int u = pilha[topo--];
-            if (!visitados[u]) {
-                visitados[u] = true;
-                for (int v = grafo->num_vertices - 1; v >= 0; v--) {
-                    if (grafo->matriz_adj[u][v] == 1 && !visitados[v]) {
-                        if (topo + 1 >= capacidade_pilha) {
-                            capacidade_pilha *= 2;
-                            pilha = (int *)realloc(pilha, capacidade_pilha * sizeof(int));
-                        }
-                        pilha[++topo] = v;
-                        pais[v] = u;
-                        niveis[v] = niveis[u] + 1;
+            
+            for (int v = grafo->num_vertices - 1; v >= 0; v--) {
+                if (grafo->matriz_adj[u][v] == 1 && niveis[v] == -1) {
+                    if (topo + 1 >= capacidade_pilha) {
+                        capacidade_pilha *= 2;
+                        pilha = (int *)realloc(pilha, capacidade_pilha * sizeof(int));
                     }
+                    pilha[++topo] = v;
+                    pais[v] = u;
+                    niveis[v] = niveis[u] + 1;
                 }
             }
         }
     }
     
-    free(visitados);
     free(pilha);
 }
 
@@ -285,31 +279,28 @@ int calcular_distancia(Grafo *grafo, int origem, int destino) {
     if (origem == destino) return 0;
     if (origem < 0 || origem >= grafo->num_vertices || destino < 0 || destino >= grafo->num_vertices) return -1;
     
-    bool *visitados = (bool *)calloc(grafo->num_vertices, sizeof(bool));
+    // OTIMIZAÇÃO 2: Removido 'visitados'. Usamos o vetor 'distancia' como flag (inicializado com -1).
     int *distancia = (int *)malloc(grafo->num_vertices * sizeof(int));
     int *fila = (int *)malloc(grafo->num_vertices * sizeof(int));
     int inicio = 0, fim = 0;
     
     for (int i = 0; i < grafo->num_vertices; i++) distancia[i] = -1;
     
-    visitados[origem] = true;
     distancia[origem] = 0;
     fila[fim++] = origem;
     
-    // OTIMIZAÇÃO: If removido de dentro do ciclo
     if (grafo->tipo_representacao == LISTA_ADJACENCIA) {
         while (inicio < fim) {
             int u = fila[inicio++];
             NoListaAdj *adj = grafo->lista_adj[u];
             while (adj) {
                 int v = adj->vertice;
-                if (!visitados[v]) {
-                    visitados[v] = true;
+                if (distancia[v] == -1) { 
                     distancia[v] = distancia[u] + 1;
                     fila[fim++] = v;
                     if (v == destino) {
                         int dist = distancia[destino];
-                        free(visitados); free(distancia); free(fila);
+                        free(distancia); free(fila);
                         return dist;
                     }
                 }
@@ -320,13 +311,12 @@ int calcular_distancia(Grafo *grafo, int origem, int destino) {
         while (inicio < fim) {
             int u = fila[inicio++];
             for (int v = 0; v < grafo->num_vertices; v++) {
-                if (grafo->matriz_adj[u][v] == 1 && !visitados[v]) {
-                    visitados[v] = true;
+                if (grafo->matriz_adj[u][v] == 1 && distancia[v] == -1) {
                     distancia[v] = distancia[u] + 1;
                     fila[fim++] = v;
                     if (v == destino) {
                         int dist = distancia[destino];
-                        free(visitados); free(distancia); free(fila);
+                        free(distancia); free(fila);
                         return dist;
                     }
                 }
@@ -334,7 +324,7 @@ int calcular_distancia(Grafo *grafo, int origem, int destino) {
         }
     }
     
-    free(visitados); free(distancia); free(fila);
+    free(distancia); free(fila);
     return -1;
 }
 
@@ -355,7 +345,6 @@ int calcular_diametro(Grafo *grafo) {
         int amostra_size = 100;
         srand(time(NULL));
         
-        bool *visitados = (bool *)malloc(grafo->num_vertices * sizeof(bool));
         int *distancia = (int *)malloc(grafo->num_vertices * sizeof(int));
         int *fila = (int *)malloc(grafo->num_vertices * sizeof(int));
         
@@ -364,23 +353,26 @@ int calcular_diametro(Grafo *grafo) {
             int inicio = 0, fim = 0;
             
             for (int i = 0; i < grafo->num_vertices; i++) {
-                visitados[i] = false;
                 distancia[i] = -1;
             }
             
-            visitados[vertice_inicial] = true;
             distancia[vertice_inicial] = 0;
             fila[fim++] = vertice_inicial;
             
-            // OTIMIZAÇÃO: If removido de dentro do ciclo
+            int local_max_dist = 0; // Guardará o máximo desta BFS
+            
             if (grafo->tipo_representacao == LISTA_ADJACENCIA) {
                 while (inicio < fim) {
                     int u = fila[inicio++];
+                    
+                    // OTIMIZAÇÃO 3: Pela BFS explorar em camadas, o último vértice removido 
+                    // terá sempre a maior distância garantida. O(1) de atualização.
+                    local_max_dist = distancia[u];
+                    
                     NoListaAdj *adj = grafo->lista_adj[u];
                     while (adj) {
                         int v = adj->vertice;
-                        if (!visitados[v]) {
-                            visitados[v] = true;
+                        if (distancia[v] == -1) {
                             distancia[v] = distancia[u] + 1;
                             fila[fim++] = v;
                         }
@@ -390,9 +382,12 @@ int calcular_diametro(Grafo *grafo) {
             } else {
                 while (inicio < fim) {
                     int u = fila[inicio++];
+                    
+                    // OTIMIZAÇÃO 3: Aplicada à matriz também.
+                    local_max_dist = distancia[u];
+                    
                     for (int v = 0; v < grafo->num_vertices; v++) {
-                        if (grafo->matriz_adj[u][v] == 1 && !visitados[v]) {
-                            visitados[v] = true;
+                        if (grafo->matriz_adj[u][v] == 1 && distancia[v] == -1) {
                             distancia[v] = distancia[u] + 1;
                             fila[fim++] = v;
                         }
@@ -400,14 +395,10 @@ int calcular_diametro(Grafo *grafo) {
                 }
             }
             
-            int local_max_dist = 0;
-            for (int i = 0; i < grafo->num_vertices; i++) {
-                if (distancia[i] > local_max_dist) local_max_dist = distancia[i];
-            }
+            // Laço FOR varrendo O(V) inteiramente eliminado aqui!
             if (local_max_dist > max_distancia) max_distancia = local_max_dist;
         }
         
-        free(visitados);
         free(distancia);
         free(fila);
         
@@ -419,9 +410,14 @@ void encontrar_componentes_conexas(Grafo *grafo, const char *nome_arquivo_saida)
     FILE *arquivo_saida = fopen(nome_arquivo_saida, "w"); 
     if (!arquivo_saida) return;
     
+    // O vetor de visitados é mantido aqui porque esta função não usa o vetor de 'niveis'
     bool *visitados = (bool *)calloc(grafo->num_vertices, sizeof(bool));
     ComponenteConexa *componentes = (ComponenteConexa *)malloc(grafo->num_vertices * sizeof(ComponenteConexa));
     int num_componentes = 0;
+    
+    // OTIMIZAÇÃO 1: Fila alocada UMA ÚNICA VEZ fora do laço! 
+    // Evita milhares de mallocs/frees caso o grafo seja muito fragmentado.
+    int *fila = (int *)malloc(grafo->num_vertices * sizeof(int));
     
     for (int i = 0; i < grafo->num_vertices; i++) {
         if (!visitados[i]) {
@@ -429,13 +425,12 @@ void encontrar_componentes_conexas(Grafo *grafo, const char *nome_arquivo_saida)
             componentes[num_componentes].vertices = (int *)malloc(capacidade_vertices * sizeof(int));
             componentes[num_componentes].tamanho = 0;
             
-            int *fila = (int *)malloc(grafo->num_vertices * sizeof(int));
+            // Apenas reiniciamos os índices lógicos para reutilizar a mesma fila física
             int inicio = 0, fim = 0;
             
             fila[fim++] = i;
             visitados[i] = true;
             
-            // OTIMIZAÇÃO: If removido de dentro do ciclo
             if (grafo->tipo_representacao == LISTA_ADJACENCIA) {
                 while (inicio < fim) {
                     int vertice = fila[inicio++];
@@ -473,10 +468,13 @@ void encontrar_componentes_conexas(Grafo *grafo, const char *nome_arquivo_saida)
                     }
                 }
             }
-            free(fila);
             num_componentes++;
         }
     }
+    
+    // OTIMIZAÇÃO 1: Liberação final da memória transferida para fora do laço
+    free(fila); 
+    
     qsort(componentes, num_componentes, sizeof(ComponenteConexa), comparar_componentes);
     
     fprintf(arquivo_saida, "\nComponentes Conexas:\n");
@@ -492,3 +490,9 @@ void encontrar_componentes_conexas(Grafo *grafo, const char *nome_arquivo_saida)
     
     free(visitados); free(componentes); fclose(arquivo_saida);
 }
+
+
+
+
+
+

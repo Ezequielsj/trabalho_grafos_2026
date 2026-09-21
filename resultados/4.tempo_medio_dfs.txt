@@ -1,1 +1,1 @@
-Tempo medio de execucao da DFS: 0.188162 segundos
+Tempo medio de execucao da DFS: 0.193496 segundos

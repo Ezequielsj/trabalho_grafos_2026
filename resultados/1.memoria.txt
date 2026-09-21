@@ -1,2 +1,2 @@
-Memoria utilizada (Lista de Adjacencia): 1525779440 bytes
-Memoria utilizada (Matriz de Adjacencia): 93847695000000 bytes
+Memoria utilizada (Lista de Adjacencia): 27499776 bytes
+Memoria utilizada (Matriz de Adjacencia): 562503000000 bytes
